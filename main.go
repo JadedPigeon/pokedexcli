@@ -85,7 +85,7 @@ func getLocationAreas(c *config, url string) error {
 	}
 
 	locations := locationAreas{}
-	err = json.Unmarshal([]byte(data), &locations)
+	err = json.Unmarshal(data, &locations)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling location area data: %w", err)
 	}
@@ -139,7 +139,7 @@ func init() {
 		},
 		"mapb": {
 			name:        "mapb",
-			description: "Display the last 20 locations in the Pokedex",
+			description: "Display the previous 20 locations in the Pokedex",
 			callback:    commandMapb,
 		},
 	}
@@ -160,11 +160,11 @@ func main() {
 		scanner := scanner.Text()
 		cleanline := cleanInput(scanner)
 		// We only care about the first word
-		input := cleanline[0]
 		if len(cleanline) == 0 {
 			// No input, show prompt again
 			continue
 		}
+		input := cleanline[0]
 		if command, exists := commands[input]; exists {
 			err := command.callback(cfg)
 			if err != nil {
