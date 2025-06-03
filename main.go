@@ -195,7 +195,7 @@ func init() {
 		},
 		"explore": {
 			name:        "explore",
-			description: "Explore the location",
+			description: "Explore the location: Usage: explore <location_id>",
 			callback:    commandExplore,
 		},
 	}
