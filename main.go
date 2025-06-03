@@ -64,9 +64,13 @@ func commandHelp(_ *config, cmds map[string]cliCommand) error {
 
 func GetURL(url string, cache *pokecache.Cache) ([]byte, error) {
 	if data, ok := cache.Get(url); ok {
-		fmt.Println("[Cache hit]", url)
+		//fmt.Println("[Cache hit]", url)
 		return data, nil
 	}
+
+	// Simulate long network delay
+	// fmt.Println("[Cache miss] Waiting 2 seconds before fetching", url)
+	// time.Sleep(2 * time.Second)
 
 	res, err := http.Get(url)
 	if err != nil {
@@ -80,14 +84,14 @@ func GetURL(url string, cache *pokecache.Cache) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
-	fmt.Println("[Cache miss]", url)
+	// fmt.Println("[Cache miss] adding to cache", url)
 	cache.Add(url, body)
 	return body, nil
 }
 
 func getLocationAreas(c *config, url string) error {
 	if url == "" {
-		url = "https://pokeapi.co/api/v2/location-area/"
+		url = "https://pokeapi.co/api/v2/location-area?offset=0&limit=20"
 	}
 
 	data, err := GetURL(url, c.cache)
@@ -104,6 +108,13 @@ func getLocationAreas(c *config, url string) error {
 	// Update the config with next and previous URLs
 	c.nextLocationAreaURL = locations.Next
 	c.previousLocationAreaURL = locations.Previous
+	// Print the next and previous URLs for debugging
+	// if c.nextLocationAreaURL != nil {
+	// 	fmt.Println("Next URL (value):", *c.nextLocationAreaURL)
+	// }
+	// if c.previousLocationAreaURL != nil {
+	// 	fmt.Println("Previous URL (value):", *c.previousLocationAreaURL)
+	// }
 
 	// Below prints are for debugging purposes
 	for _, loc := range locations.Results {
@@ -160,7 +171,7 @@ func init() {
 func main() {
 	fmt.Println("Welcome to the Pokedex CLI!")
 	cfg := &config{
-		cache: pokecache.NewCache(5 * time.Second),
+		cache: pokecache.NewCache(60 * time.Second),
 	}
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
