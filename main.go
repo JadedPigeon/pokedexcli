@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	_ "github.com/JadedPigeon/pokedexcli/internal/pokecache"
 )
 
 // ===== Structs =====

@@ -40,9 +40,13 @@ func (c *Cache) reapLoop(interval time.Duration) {
 func (c *Cache) Add(key string, val []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	copied := make([]byte, len(val))
+	copy(copied, val)
+
 	c.cache[key] = cacheEntry{
 		createdAt: time.Now(),
-		val:       val,
+		val:       copied,
 	}
 }
 
