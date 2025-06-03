@@ -8,8 +8,9 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
-	_ "github.com/JadedPigeon/pokedexcli/internal/pokecache"
+	"github.com/JadedPigeon/pokedexcli/internal/pokecache"
 )
 
 // ===== Structs =====
@@ -22,6 +23,7 @@ type cliCommand struct {
 type config struct {
 	nextLocationAreaURL     *string
 	previousLocationAreaURL *string
+	cache                   *pokecache.Cache
 }
 
 type locationAreas struct {
@@ -60,7 +62,12 @@ func commandHelp(_ *config, cmds map[string]cliCommand) error {
 	return nil
 }
 
-func GetURL(url string) ([]byte, error) {
+func GetURL(url string, cache *pokecache.Cache) ([]byte, error) {
+	if data, ok := cache.Get(url); ok {
+		fmt.Println("[Cache hit]", url)
+		return data, nil
+	}
+
 	res, err := http.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch URL %s: %w", url, err)
@@ -73,6 +80,8 @@ func GetURL(url string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
+	fmt.Println("[Cache miss]", url)
+	cache.Add(url, body)
 	return body, nil
 }
 
@@ -81,7 +90,7 @@ func getLocationAreas(c *config, url string) error {
 		url = "https://pokeapi.co/api/v2/location-area/"
 	}
 
-	data, err := GetURL(url)
+	data, err := GetURL(url, c.cache)
 	if err != nil {
 		return fmt.Errorf("error fetching location area: %w", err)
 	}
@@ -150,7 +159,9 @@ func init() {
 // ===== Main Function =====
 func main() {
 	fmt.Println("Welcome to the Pokedex CLI!")
-	cfg := &config{}
+	cfg := &config{
+		cache: pokecache.NewCache(5 * time.Second),
+	}
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
 		fmt.Print("Pokedex > ")
