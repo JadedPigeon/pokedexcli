@@ -39,17 +39,17 @@ var commands map[string]cliCommand
 func cleanInput(text string) []string {
 	lower := strings.ToLower(text)
 	parts := strings.Fields(lower)
-
+	// We only want the first word
 	return parts
 }
 
-func commandExit(c *config) error {
+func commandExit(_ *config) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(c *config, cmds map[string]cliCommand) error {
+func commandHelp(_ *config, cmds map[string]cliCommand) error {
 	fmt.Println("Welcome to the Pokedex!")
 	fmt.Println("Usage:")
 	for _, cmd := range cmds {
