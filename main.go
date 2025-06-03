@@ -17,7 +17,7 @@ import (
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(c *config) error
+	callback    func(c *config, args []string) error
 }
 
 type config struct {
@@ -36,6 +36,14 @@ type locationAreas struct {
 	} `json:"results"`
 }
 
+type AreaEncounter struct {
+	PokemonEncounters []struct {
+		Pokemon struct {
+			Name string `json:"name"`
+		} `json:"pokemon"`
+	} `json:"pokemon_encounters"`
+}
+
 // ===== Global Variables =====
 var commands map[string]cliCommand
 
@@ -47,13 +55,13 @@ func cleanInput(text string) []string {
 	return parts
 }
 
-func commandExit(_ *config) error {
+func commandExit(_ *config, _ []string) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(_ *config, cmds map[string]cliCommand) error {
+func commandHelp(_ *config, cmds map[string]cliCommand, _ []string) error {
 	fmt.Println("Welcome to the Pokedex!")
 	fmt.Println("Usage:")
 	for _, cmd := range cmds {
@@ -116,14 +124,13 @@ func getLocationAreas(c *config, url string) error {
 	// 	fmt.Println("Previous URL (value):", *c.previousLocationAreaURL)
 	// }
 
-	// Below prints are for debugging purposes
-	for _, loc := range locations.Results {
-		fmt.Println(loc.Name)
+	for id, loc := range locations.Results {
+		fmt.Printf("Location %d: %s\n", id+1, loc.Name)
 	}
 	return nil
 }
 
-func commandMap(c *config) error {
+func commandMap(c *config, _ []string) error {
 	var url string
 	if c.nextLocationAreaURL != nil {
 		url = *c.nextLocationAreaURL
@@ -131,12 +138,34 @@ func commandMap(c *config) error {
 	return getLocationAreas(c, url)
 }
 
-func commandMapb(c *config) error {
+func commandMapb(c *config, _ []string) error {
 	if c.previousLocationAreaURL == nil {
 		fmt.Println("You're on the first page.")
 		return nil
 	}
 	return getLocationAreas(c, *c.previousLocationAreaURL)
+}
+
+func commandExplore(c *config, id []string) error {
+	if len(id) == 0 || id[0] == "" {
+		return fmt.Errorf("please provide a location area ID or name")
+	}
+	url := "https://pokeapi.co/api/v2/location-area/" + id[0]
+	data, err := GetURL(url, c.cache)
+	if err != nil {
+		return fmt.Errorf("error fetching location area %s: %w", id[0], err)
+	}
+
+	area := AreaEncounter{}
+	err = json.Unmarshal(data, &area)
+	if err != nil {
+		return fmt.Errorf("error unmarshalling area encounter data: %w", err)
+	}
+	fmt.Printf("Exploring location area %s:\n", id[0])
+	for _, encounter := range area.PokemonEncounters {
+		fmt.Printf("  - %s\n", encounter.Pokemon.Name)
+	}
+	return nil
 }
 
 // ===== Initialize =====
@@ -150,8 +179,8 @@ func init() {
 		"help": {
 			name:        "help",
 			description: "Show available commands",
-			callback: func(c *config) error {
-				return commandHelp(c, commands)
+			callback: func(c *config, _ []string) error {
+				return commandHelp(c, commands, nil)
 			},
 		},
 		"map": {
@@ -163,6 +192,11 @@ func init() {
 			name:        "mapb",
 			description: "Display the previous 20 locations in the Pokedex",
 			callback:    commandMapb,
+		},
+		"explore": {
+			name:        "explore",
+			description: "Explore the location",
+			callback:    commandExplore,
 		},
 	}
 }
@@ -189,8 +223,9 @@ func main() {
 			continue
 		}
 		input := cleanline[0]
+		args := cleanline[1:]
 		if command, exists := commands[input]; exists {
-			err := command.callback(cfg)
+			err := command.callback(cfg, args)
 			if err != nil {
 				fmt.Println("Error:", err)
 			}
