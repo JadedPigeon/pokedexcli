@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -24,6 +25,7 @@ type config struct {
 	nextLocationAreaURL     *string
 	previousLocationAreaURL *string
 	cache                   *pokecache.Cache
+	pokedex                 map[string]PokemonInfo
 }
 
 type locationAreas struct {
@@ -42,6 +44,11 @@ type AreaEncounter struct {
 			Name string `json:"name"`
 		} `json:"pokemon"`
 	} `json:"pokemon_encounters"`
+}
+
+type PokemonInfo struct {
+	Name *string `json:"name"`
+	Exp  int     `json:"base_experience"`
 }
 
 // ===== Global Variables =====
@@ -168,6 +175,33 @@ func commandExplore(c *config, id []string) error {
 	return nil
 }
 
+func commandCatch(c *config, name []string) error {
+	if len(name) == 0 || name[0] == "" {
+		return fmt.Errorf("please provide a pokemone's name")
+	}
+	url := "https://pokeapi.co/api/v2/pokemon/" + name[0]
+	data, err := GetURL(url, c.cache)
+	if err != nil {
+		return fmt.Errorf("error fetching pokemon data, please check spelling: %w", err)
+	}
+
+	pokemon := PokemonInfo{}
+	err = json.Unmarshal(data, &pokemon)
+	if err != nil {
+		return fmt.Errorf("error unmarshalling pokemone data: %w", err)
+	}
+	fmt.Printf("Throwing a Pokeball at %s...\n", *pokemon.Name)
+	chance := float32((400 - pokemon.Exp)) / 4
+	randomchance := rand.Float32() * 100
+	if chance > randomchance {
+		c.pokedex[*pokemon.Name] = pokemon
+		fmt.Printf("%s was caught!\n", *pokemon.Name)
+	} else {
+		fmt.Printf("%s escaped!\n", *pokemon.Name)
+	}
+	return nil
+}
+
 // ===== Initialize =====
 func init() {
 	commands = map[string]cliCommand{
@@ -198,6 +232,11 @@ func init() {
 			description: "Explore the location: Usage: explore <location_id>",
 			callback:    commandExplore,
 		},
+		"catch": {
+			name:        "catch",
+			description: "Attempt to catch a pokemone: Usage catch <pokemon>",
+			callback:    commandCatch,
+		},
 	}
 }
 
@@ -205,7 +244,8 @@ func init() {
 func main() {
 	fmt.Println("Welcome to the Pokedex CLI!")
 	cfg := &config{
-		cache: pokecache.NewCache(60 * time.Second),
+		cache:   pokecache.NewCache(60 * time.Second),
+		pokedex: make(map[string]PokemonInfo),
 	}
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
